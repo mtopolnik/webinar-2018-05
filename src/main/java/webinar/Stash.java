@@ -5,6 +5,9 @@ import com.hazelcast.jet.Jet;
 import com.hazelcast.jet.JetInstance;
 import com.hazelcast.jet.Job;
 import com.hazelcast.jet.config.JetConfig;
+import com.hazelcast.jet.datamodel.TimestampedEntry;
+import com.hazelcast.jet.datamodel.TimestampedItem;
+import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.jet.pipeline.Pipeline;
 import com.hazelcast.jet.pipeline.StreamStage;
 
@@ -50,17 +53,18 @@ public class Stash {
                 .filterUsingContext(replicatedMapContext(STOPWORDS),
                         (stopwords, word) -> !word.isEmpty() && !stopwords.containsKey(word));
 
-        StreamStage<Entry<String, Long>> wordFrequencies = words
+        StreamStage<TimestampedEntry<String, Long>> wordFrequencies = words
                 .window(sliding(10_000, 100))
                 .groupingKey(wholeItem())
-                .aggregate(counting(), (winStart, winEnd, word, frequency) -> entry(word, frequency));
+                .aggregate(counting());
 
-        StreamStage<List<String>> topLists = wordFrequencies
+        StreamStage<TimestampedItem<List<String>>> topLists = wordFrequencies
                 .window(tumbling(100))
                 .aggregate(TweetPublisher.topN(10, comparing(Entry::getValue)),
-                        (winStart, winEnd, topList) -> topList.stream().map(Entry::getKey).collect(toList()));
+                        (winStart, winEnd, topList) -> new TimestampedItem<>(winEnd,
+                                topList.stream().map(Entry::getKey).collect(toList())));
 
-        topLists.map(topList -> entry(PUBLISH_KEY, topList))
+        topLists.map(timestampedTopList -> entry(PUBLISH_KEY, timestampedTopList))
                 .drainTo(map(TOP_LIST));
         return p;
     }

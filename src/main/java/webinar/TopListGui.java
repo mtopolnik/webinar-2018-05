@@ -1,10 +1,13 @@
 package webinar;
 
 import com.hazelcast.core.IMap;
+import com.hazelcast.jet.datamodel.TimestampedItem;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.List;
 
 import static java.awt.EventQueue.invokeLater;
@@ -14,16 +17,16 @@ import static java.util.stream.Collectors.toMap;
 import static webinar.Stash.PUBLISH_KEY;
 
 class TopListGui {
-    private static final int WINDOW_X = 700;
-    private static final int WINDOW_Y = 200;
-    private static final int WINDOW_WIDTH = 300;
-    private static final int WINDOW_HEIGHT = 350;
+    private static final int WINDOW_X = 600;
+    private static final int WINDOW_Y = 150;
+    private static final int WINDOW_WIDTH = 500;
+    private static final int WINDOW_HEIGHT = 650;
 
-    private final IMap<Object, List<String>> topList;
+    private final IMap<Object, TimestampedItem<List<String>>> topList;
     private Timer timer;
     private JFrame frame;
 
-    TopListGui(IMap<Object, List<String>> topList) {
+    TopListGui(IMap<Object, TimestampedItem<List<String>>> topList) {
         this.topList = topList;
         invokeLater(this::buildFrame);
     }
@@ -47,7 +50,13 @@ class TopListGui {
         final JTextArea output = new JTextArea();
         mainPanel.add(output, BorderLayout.CENTER);
         output.setFont(output.getFont().deriveFont(18f));
-        timer = new Timer(100, e -> output.setText(topList.get(PUBLISH_KEY).stream().collect(joining("\n"))));
+        DateFormat df = new SimpleDateFormat("HH:mm:ss.SSS");
+        timer = new Timer(100, e -> {
+            TimestampedItem<List<String>> timestampedTopList = topList.get(PUBLISH_KEY);
+            output.setText(
+                    df.format(timestampedTopList.timestamp()) + "\n\n" +
+                    timestampedTopList.item().stream().collect(joining("\n")));
+        });
         timer.start();
         frame.setVisible(true);
     }
