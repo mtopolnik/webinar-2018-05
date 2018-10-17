@@ -12,9 +12,7 @@ import java.util.List;
 
 import static java.awt.EventQueue.invokeLater;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.partitioningBy;
-import static java.util.stream.Collectors.toMap;
-import static webinar.Stash.PUBLISH_KEY;
+import static webinar.TrendingWordsInTweets.PUBLISH_KEY;
 
 class TopListGui {
     private static final int WINDOW_X = 600;
@@ -32,8 +30,12 @@ class TopListGui {
     }
 
     void shutdown() {
-        timer.stop();
-        frame.dispose();
+        if (timer != null) {
+            timer.stop();
+        }
+        if (frame != null) {
+            frame.dispose();
+        }
     }
 
     private void buildFrame() {
@@ -53,6 +55,9 @@ class TopListGui {
         DateFormat df = new SimpleDateFormat("HH:mm:ss.SSS");
         timer = new Timer(100, e -> {
             TimestampedItem<List<String>> timestampedTopList = topList.get(PUBLISH_KEY);
+            if (timestampedTopList == null) {
+                return;
+            }
             output.setText(
                     df.format(timestampedTopList.timestamp()) + "\n\n" +
                     timestampedTopList.item().stream().collect(joining("\n")));

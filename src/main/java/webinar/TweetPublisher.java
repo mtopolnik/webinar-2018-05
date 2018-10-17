@@ -12,6 +12,8 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.PriorityQueue;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.locks.LockSupport;
 
 import static com.hazelcast.jet.impl.util.Util.checkSerializable;
@@ -20,7 +22,7 @@ import static java.nio.file.Files.newDirectoryStream;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.StreamSupport.stream;
-import static webinar.Stash.PUBLISH_KEY;
+import static webinar.JetProcess.PARTITION_COUNT;
 
 class TweetPublisher extends Thread {
     private volatile boolean keepRunning = true;
@@ -41,12 +43,13 @@ class TweetPublisher extends Thread {
 
     @Override
     public void run() {
+        Random rnd = ThreadLocalRandom.current();
         while (lines.hasNext() && keepRunning) {
             if (!enabled) {
                 LockSupport.parkNanos(MILLISECONDS.toNanos(1));
                 continue;
             }
-            map.put(PUBLISH_KEY, new Tweet(System.currentTimeMillis(), lines.next()));
+            map.put(rnd.nextInt(PARTITION_COUNT), new Tweet(System.currentTimeMillis(), lines.next()));
         }
     }
 
@@ -87,7 +90,7 @@ class TweetPublisher extends Thread {
                         accumulateFn.accept(a1, t);
                     }
                 })
-                .andFinish(a -> {
+                .andExportFinish(a -> {
                     ArrayList<T> res = new ArrayList<>(a);
                     res.sort(comparatorReversed);
                     return res;
